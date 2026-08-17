@@ -1,11 +1,57 @@
-name: 测试工作流
+name: 自动推送外刊到Kindle
 
 "on":
   workflow_dispatch:
+  schedule:
+    - cron: '0 12 * * 5'
 
 jobs:
-  test:
+  send-to-kindle:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        book:
+          - { name: "经济学人",   folder: "01_economist" }
+          - { name: "纽约客",     folder: "02_new_yorker" }
+          - { name: "大西洋月刊", folder: "04_atlantic" }
+          - { name: "连线",       folder: "05_wired" }
+
     steps:
-      - name: 打印Hello
-        run: echo "Hello Kindle"
+      - name: 检出仓库
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 同步原仓库最新外刊
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/hehonghui/awesome-english-ebooks.git || true
+          git fetch upstream master
+          git merge upstream/master -X theirs --no-edit || echo "同步完成"
+
+      - name: 查找最新外刊文件
+        id: find
+        run: |
+          FILE=$(find ./${{ matrix.book.folder }} -maxdepth 2 -name "*.mobi" -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+          if [ -z "$FILE" ]; then
+            FILE=$(find ./${{ matrix.book.folder }} -maxdepth 2 -name "*.epub" -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+          fi
+          echo "找到: $FILE"
+          echo "file=$FILE" >> $GITHUB_OUTPUT
+
+      - name: 推送到 Kindle
+        if: steps.find.outputs.file != ''
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: 465
+          username: ${{ secrets.SMTP_EMAIL }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: '${{ matrix.book.name }}'
+          body: '${{ matrix.book.name }} 已自动推送至您的 Kindle'
+          to: ${{ secrets.KINDLE_EMAIL }}
+          from: 'Kindle 外刊推送'
+          attachments: ${{ steps.find.outputs.file }}
+          secure: true
