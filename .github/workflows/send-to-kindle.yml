@@ -34,9 +34,9 @@ jobs:
       - name: 查找最新外刊文件
         id: find
         run: |
-          FILE=$(find ./${{ matrix.book.folder }} -maxdepth 2 -name "*.mobi" -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+          FILE=$(find ./${{ matrix.book.folder }} -maxdepth 2 -name "*.epub" -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
           if [ -z "$FILE" ]; then
-            FILE=$(find ./${{ matrix.book.folder }} -maxdepth 2 -name "*.epub" -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+            FILE=$(find ./${{ matrix.book.folder }} -maxdepth 2 -name "*.mobi" -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
           fi
           echo "找到: $FILE"
           echo "file=$FILE" >> $GITHUB_OUTPUT
